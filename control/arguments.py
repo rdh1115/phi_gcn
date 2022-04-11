@@ -67,7 +67,7 @@ def get_args():
                         help='port to run the server on (default: 8097)')
 
     parser.add_argument('--use-logger', action='store_true', default=False,
-                        help='log the results') 
+                        help='log the results')
     parser.add_argument('--folder', default='./results',
                         help='folder to save results')
     parser.add_argument('--gcn_epochs', type=int, default=1,
@@ -84,7 +84,12 @@ def get_args():
                         help='Mixing coefficient between GCN losses.')
     parser.add_argument('--reward_freq', type=int, default=1,
                         help='Reward frequency.')
-
+    parser.add_argument('--use_icm', action='store_true', default=False,
+                        help='enable intrinsic reward module')
+    parser.add_argument('--eta', type=float, default=0.01,
+                        help='icm bonus weight (default: 0.01)')
+    parser.add_argument('--beta', type=float, default=0.2,
+                        help='icm forward loss weight (default: 0.2)')
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

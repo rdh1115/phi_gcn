@@ -6,6 +6,7 @@ from .kfac import KFACOptimizer
 
 
 class A2C_ACKTR():
+
     def __init__(self,
                  actor_critic,
                  value_loss_coef,
@@ -29,8 +30,9 @@ class A2C_ACKTR():
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
+        torch.autograd.set_detect_anomaly(True)
 
-    def update(self, rollouts):
+    def update(self, rollouts, beta):
         obs_shape = rollouts.obs.size()[2:]
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
@@ -66,9 +68,23 @@ class A2C_ACKTR():
             fisher_loss.backward(retain_graph=True)
             self.optimizer.acc_stats = False
 
+        loss = value_loss * self.value_loss_coef + action_loss - \
+               dist_entropy * self.entropy_coef
+
+        if hasattr(self.actor_critic, 'icm'):
+            inv_loss = rollouts.inv_loss[:-1].mean()
+            for_loss = rollouts.for_loss[:-1].mean()
+            # states = rollouts.obs[:-1].view(-1, *obs_shape)
+            # next_states = rollouts.obs[1:].view(-1, *obs_shape)
+            # actions = rollouts.actions.view(-1, action_shape)
+            # print(actions.size())
+            # inv_loss, for_loss = self.actor_critic.get_icm_loss(
+            #
+            # )
+            loss = loss + ((1 - beta) * inv_loss + beta * for_loss)
+
         self.optimizer.zero_grad()
-        (value_loss * self.value_loss_coef + action_loss -
-         dist_entropy * self.entropy_coef).backward()
+        loss.backward()
 
         if self.acktr == False:
             nn.utils.clip_grad_norm_(self.actor_critic.parameters(),

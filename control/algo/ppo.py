@@ -31,7 +31,7 @@ class PPO():
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
-    def update(self, rollouts):
+    def update(self, rollouts, beta):
 
         advantages_phi =  rollouts.adv_comb
         advantages_phi = (advantages_phi - advantages_phi.mean()) / (

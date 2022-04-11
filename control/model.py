@@ -11,6 +11,75 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 
+class BaseConv(nn.Module):
+    def __init__(self, num_inputs):
+        super(BaseConv, self).__init__()
+        self.conv = nn.Sequential(nn.Conv2d(num_inputs, 64, 3, stride=2, padding=1),
+                                  nn.ReLU(),
+                                  nn.Conv2d(64, 64, 3, stride=2, padding=1),
+                                  nn.ReLU(),
+                                  nn.Conv2d(64, 64, 3, stride=2, padding=1),
+                                  nn.ReLU(),
+                                  nn.Conv2d(64, 64, 3, stride=2, padding=1),
+                                  nn.ReLU(),
+                                  nn.Conv2d(64, 64, 3, stride=2, padding=1),
+                                  nn.ReLU()
+                                  )
+
+    def forward(self, x):
+        return self.conv(x)
+
+
+class ICM(torch.nn.Module):
+    def __init__(self, action_space, state_size, env_name, num_inputs=1, cnn_head=True, base_kwargs=None):
+        super(ICM, self).__init__()
+        if cnn_head:
+            self.head = BaseConv(num_inputs)
+
+        if action_space.__class__.__name__ == "Discrete":
+            action_space = action_space.n
+            self.state_size = 64 * 3 * 3
+        else:
+            raise NotImplementedError
+            # TODO: for continuous action space, loss is gaussian mean or output?
+            action_space = action_space.shape[0]
+
+        self.forward_model = nn.Sequential(
+            nn.Linear(state_size + action_space, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, state_size))
+
+        self.inverse_model = nn.Sequential(
+            nn.Linear(state_size * 2, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, action_space),
+            nn.ReLU())
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                # nn.init.kaiming_uniform_(module.weight)
+                nn.init.constant_(module.bias, 0)
+
+    def forward(self, state, next_state, action):
+        if hasattr(self, 'head'):
+            phi1 = self.head(state)
+            phi2 = self.head(next_state)
+        else:
+            phi1 = state
+            phi2 = next_state
+        phi1 = phi1.view(-1, self.state_size)
+        phi2 = phi2.view(-1, self.state_size)
+        # forward model: f(phi1,asample) -> phi2
+        phi2_pred = self.forward_model(torch.cat([phi1, action], 1))
+
+        # inverse model: g(phi1,phi2) -> a_inv: [None, ac_space]
+        action_pred = F.softmax(self.inverse_model(torch.cat([phi1.clone(), phi2], 1)), -1)
+        return action_pred, phi2_pred, phi2
+
+
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, env_name, base_kwargs=None):
         super(Policy, self).__init__()
@@ -18,7 +87,7 @@ class Policy(nn.Module):
             base_kwargs = {}
 
         if len(obs_shape) == 3:
-            self.base = CNNBase(obs_shape[0],env_name, **base_kwargs)
+            self.base = CNNBase(obs_shape[0], env_name, **base_kwargs)
         elif len(obs_shape) == 1:
             self.base = MLPBase(obs_shape[0], **base_kwargs)
         else:
@@ -27,8 +96,12 @@ class Policy(nn.Module):
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
             self.dist = Categorical(self.base.output_size, num_outputs)
+            self.num_outputs = num_outputs
+            self.discrete = True
         elif action_space.__class__.__name__ == "Box":
             num_outputs = action_space.shape[0]
+            self.num_outputs = num_outputs
+            self.discrete = False
             self.dist = DiagGaussian(self.base.output_size, num_outputs)
         else:
             raise NotImplementedError
@@ -71,6 +144,44 @@ class Policy(nn.Module):
         dist_entropy = dist.entropy().mean()
 
         return value, action_log_probs, dist_entropy, rnn_hxs
+
+
+class ICM_Policy(Policy):
+    def __init__(self, obs_shape, action_space, env_name, base_kwargs=None):
+        super(ICM_Policy, self).__init__(obs_shape, action_space, env_name, base_kwargs)
+        if len(obs_shape) == 3:
+            self.icm = ICM(action_space=action_space, state_size=576, num_inputs=obs_shape[0],
+                           env_name=env_name, cnn_head=True, base_kwargs=base_kwargs)
+        elif len(obs_shape) == 1:
+            self.icm = ICM(action_space=action_space, state_size=obs_shape[0], num_inputs=1,
+                           env_name=env_name, cnn_head=False, base_kwargs=base_kwargs)
+        else:
+            raise NotImplementedError
+
+    def act(self, inputs, rnn_hxs, masks, deterministic=False):
+        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        dist = self.dist(actor_features)
+
+        if deterministic:
+            action = dist.mode()
+        else:
+            action = dist.sample()
+
+        action_log_probs = dist.log_probs(action)
+        dist_entropy = dist.entropy().mean()
+        action_prob = torch.exp(action_log_probs)
+        # import pdb;pdb.set_trace()
+        return value, action, action_log_probs, rnn_hxs, actor_features, action_prob
+
+    def get_icm_loss(self, states, next_states, action):
+        action_oh = action.clone()
+        if self.discrete:
+            action_oh = torch.zeros((1, self.num_outputs))
+            action_oh[0, action.view(-1)] = 1
+        action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
+        inverse_loss = F.cross_entropy(action_pred, action_oh)
+        forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2, reduce=False).sum(-1)
+        return inverse_loss, forward_loss
 
 
 class NNBase(nn.Module):
@@ -144,39 +255,39 @@ class CNNBase(NNBase):
         super(CNNBase, self).__init__(recurrent, hidden_size, hidden_size)
 
         init_ = lambda m: init(m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0),
-            nn.init.calculate_gain('relu'))
+                               nn.init.orthogonal_,
+                               lambda x: nn.init.constant_(x, 0),
+                               nn.init.calculate_gain('relu'))
 
         if "MiniWorld" in env_name:
-            finalsize=32*6*4
+            finalsize = 32 * 6 * 4
         else:
-            finalsize=32*7*7
+            finalsize = 32 * 7 * 7
         self.main = nn.Sequential(
             init_(nn.Conv2d(num_inputs, 32, 8, stride=4)), nn.ReLU(),
             init_(nn.Conv2d(32, 64, 4, stride=2)), nn.ReLU(),
             init_(nn.Conv2d(64, 32, 3, stride=1)), nn.ReLU(), Flatten(),
-#            init_(nn.Linear(32 * 6 * 4, hidden_size)), nn.ReLU()
+            #            init_(nn.Linear(32 * 6 * 4, hidden_size)), nn.ReLU()
             init_(nn.Linear(finalsize, hidden_size)), nn.ReLU()
-            )
+        )
 
         init_ = lambda m: init(m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0))
+                               nn.init.orthogonal_,
+                               lambda x: nn.init.constant_(x, 0))
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
         self.train()
 
     def forward(self, inputs, rnn_hxs, masks):
-        #print(inputs.size())
+        # print(inputs.size())
 
         x = inputs / 255.0
-        #print(x.size())
+        # print(x.size())
 
         x = self.main(x)
         # import pdb;pdb.set_trace()
-        #print(x.size())
+        # print(x.size())
 
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
@@ -192,8 +303,8 @@ class MLPBase(NNBase):
             num_inputs = hidden_size
 
         init_ = lambda m: init(m,
-            init_normc_,
-            lambda x: nn.init.constant_(x, 0))
+                               init_normc_,
+                               lambda x: nn.init.constant_(x, 0))
 
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)),

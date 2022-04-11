@@ -28,6 +28,9 @@ class RolloutStorage(object):
         self.num_processes = num_processes
         self.step = 0
 
+        self.inv_loss = torch.zeros(num_steps + 1, num_processes, 1)
+        self.for_loss = torch.zeros(num_steps + 1, num_processes, 1)
+
     def to(self, device):
         self.obs = self.obs.to(device)
         self.hidden_states = self.hidden_states.to(device)
@@ -38,16 +41,21 @@ class RolloutStorage(object):
         self.action_log_probs = self.action_log_probs.to(device)
         self.actions = self.actions.to(device)
         self.masks = self.masks.to(device)
+        self.inv_loss = self.inv_loss.to(device)
+        self.for_loss = self.for_loss.to(device)
 
-    def insert(self, obs, recurrent_hidden_states, actions, action_log_probs, value_preds, rewards, masks, hidden_state):
+    def insert(self, obs, recurrent_hidden_states, actions, action_log_probs, value_preds, rewards, masks,
+               hidden_state, inv_loss, for_loss):
         self.obs[self.step + 1].copy_(obs)
-        self.hidden_states[self.step+1].copy_(hidden_state)
+        self.hidden_states[self.step + 1].copy_(hidden_state)
         self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
         self.actions[self.step].copy_(actions)
         self.action_log_probs[self.step].copy_(action_log_probs)
         self.value_preds[self.step].copy_(value_preds)
         self.rewards[self.step].copy_(rewards)
         self.masks[self.step + 1].copy_(masks)
+        self.inv_loss[self.step].copy_(inv_loss)
+        self.for_loss[self.step].copy_(for_loss)
 
         self.step = (self.step + 1) % self.num_steps
 
@@ -57,33 +65,33 @@ class RolloutStorage(object):
         self.recurrent_hidden_states[0].copy_(self.recurrent_hidden_states[-1])
         self.masks[0].copy_(self.masks[-1])
 
-    def compute_returns(self, next_value, use_gae, gamma, tau, gcn , alpha):
+    def compute_returns(self, next_value, use_gae, gamma, tau, gcn, alpha):
 
         total_len = self.hidden_states.size(0) * self.hidden_states.size(1)
         adj = torch.eye(total_len)
-        self.adv =torch.zeros(self.num_steps + 1, self.num_processes, 1)
-        self.adv_comb =torch.zeros(self.num_steps + 1, self.num_processes, 1)
+        self.adv = torch.zeros(self.num_steps + 1, self.num_processes, 1)
+        self.adv_comb = torch.zeros(self.num_steps + 1, self.num_processes, 1)
         if self.hidden_states.is_cuda:
-            adj=adj.cuda()        
+            adj = adj.cuda()
             self.adv = self.adv.cuda()
             self.adv_comb = self.adv_comb.cuda()
 
-
-        gcn_phi = torch.exp(gcn(self.hidden_states.reshape(total_len, self.hidden_states.size(2) ), adj))
-        gcn_phi = gcn_phi[:,1].reshape(self.hidden_states.size(0), self.hidden_states.size(1), 1).detach()
+        gcn_phi = torch.exp(gcn(self.hidden_states.reshape(total_len, self.hidden_states.size(2)), adj))
+        gcn_phi = gcn_phi[:, 1].reshape(self.hidden_states.size(0), self.hidden_states.size(1), 1).detach()
         if use_gae:
             self.value_preds[-1] = next_value
-            combined = alpha * self.value_preds + (1-alpha) *gcn_phi
+            combined = alpha * self.value_preds + (1 - alpha) * gcn_phi
             gae = 0
             gae_comb = 0
-            
+
             for step in reversed(range(self.rewards.size(0))):
-                delta = self.rewards[step] + gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
+                delta = self.rewards[step] + gamma * self.value_preds[step + 1] * self.masks[step + 1] - \
+                        self.value_preds[step]
                 gae = delta + gamma * tau * self.masks[step + 1] * gae
                 self.adv[step] = gae
                 self.returns[step] = gae + self.value_preds[step]
 
-                if step == (len(self.rewards)-1):
+                if step == (len(self.rewards) - 1):
                     delta = self.rewards[step] + gamma * self.value_preds[step + 1] - gcn_phi[step]
                 else:
                     delta = self.rewards[step] + gamma * gcn_phi[step + 1] * self.masks[step + 1] - gcn_phi[step]
@@ -93,10 +101,8 @@ class RolloutStorage(object):
             self.returns[-1] = next_value
             for step in reversed(range(self.rewards.size(0))):
                 self.returns[step] = self.returns[step + 1] * \
-                    gamma * self.masks[step + 1] + self.rewards[step]\
-                     + (1-alpha) * ( gamma * self.masks[step + 1] * gcn_phi[step+1] -  gcn_phi[step])
-
-
+                                     gamma * self.masks[step + 1] + self.rewards[step] \
+                                     + (1 - alpha) * (gamma * self.masks[step + 1] * gcn_phi[step + 1] - gcn_phi[step])
 
     def feed_forward_generator(self, advantages, num_mini_batch):
         num_steps, num_processes = self.rewards.size()[0:2]
@@ -111,7 +117,8 @@ class RolloutStorage(object):
         for indices in sampler:
             obs_batch = self.obs[:-1].view(-1, *self.obs.size()[2:])[indices]
             recurrent_hidden_states_batch = self.recurrent_hidden_states[:-1].view(-1,
-                self.recurrent_hidden_states.size(-1))[indices]
+                                                                                   self.recurrent_hidden_states.size(
+                                                                                       -1))[indices]
             actions_batch = self.actions.view(-1, self.actions.size(-1))[indices]
             return_batch = self.returns[:-1].view(-1, 1)[indices]
             masks_batch = self.masks[:-1].view(-1, 1)[indices]
@@ -119,7 +126,7 @@ class RolloutStorage(object):
             adv_targ = advantages.view(-1, 1)[indices]
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+                  return_batch, masks_batch, old_action_log_probs_batch, adv_targ
 
     def recurrent_generator(self, advantages, num_mini_batch):
         num_processes = self.rewards.size(1)
@@ -166,8 +173,8 @@ class RolloutStorage(object):
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
             old_action_log_probs_batch = _flatten_helper(T, N, \
-                    old_action_log_probs_batch)
+                                                         old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+                  return_batch, masks_batch, old_action_log_probs_batch, adv_targ

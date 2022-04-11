@@ -12,6 +12,9 @@ class GCN(nn.Module):
         self.dropout = dropout
 
     def forward(self, x, adj):
+        # equation 5
+        # 2 layer GCN can be expressed as:
+        #
         x = F.relu(self.gc1(x, adj))
         x = F.dropout(x, self.dropout, training=self.training)
         x = self.gc2(x, adj)
