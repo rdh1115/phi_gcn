@@ -51,8 +51,8 @@ def get_args():
                         help='environment to train on (default: PongNoFrameskip-v4)')
     parser.add_argument('--log-dir', default='/tmp/gym/',
                         help='directory to save agent logs (default: /tmp/gym)')
-    parser.add_argument('--save-dir', default='',
-                        help='directory to save agent logs (default: )')
+    parser.add_argument('--save-dir', default='./trained_models/',
+                        help='directory to save agent logs (default: ./trained_models/)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--add-timestep', action='store_true', default=False,
@@ -90,7 +90,8 @@ def get_args():
                         help='icm bonus weight (default: 0.01)')
     parser.add_argument('--beta', type=float, default=0.2,
                         help='icm forward loss weight (default: 0.2)')
-    parser.add_argument('--render', action='store_true', default=False)
+    parser.add_argument('--render', action='store_true', default=False,
+                        help='render after training the model for visualization (default: false)')
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

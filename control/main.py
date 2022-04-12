@@ -109,8 +109,6 @@ def main():
                               actor_critic.base.output_size)
 
     obs = envs.reset()
-    render_env.reset()
-
     rollouts.obs[0].copy_(obs)
     rollouts.to(device)
 
@@ -276,8 +274,26 @@ def main():
     if args.render:
         render_env.reset()
         with torch.no_grad():
-            for _ in range(5):
-                while True:
+            if render_env.action_space.__class__.__name__ == 'Discrete':
+                for _ in range(5):
+                    while True:
+                        render_env.render()
+                        # Sample actions
+                        if args.use_icm:
+                            _, action, _, _, _, _ = actor_critic.act(
+                                rollouts.obs[step],
+                                rollouts.recurrent_hidden_states[step],
+                                rollouts.masks[step])
+                        else:
+                            _, action, _, _, _ = actor_critic.act(
+                                rollouts.obs[step],
+                                rollouts.recurrent_hidden_states[step],
+                                rollouts.masks[step])
+                        render_env.step(action)
+                        if done:
+                            break
+            else:
+                for _ in range(5000):
                     render_env.render()
                     # Sample actions
                     if args.use_icm:
@@ -290,10 +306,9 @@ def main():
                             rollouts.obs[step],
                             rollouts.recurrent_hidden_states[step],
                             rollouts.masks[step])
-                    obs, reward, done, infos = render_env.step(action)
-                    if done:
-                        break
+                    render_env.step(action)
         render_env.close()
+
 
 if __name__ == "__main__":
     main()

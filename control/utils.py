@@ -4,7 +4,7 @@ import os
 import time
 import json
 import numpy as np
-#from envs import VecNormalize
+from envs import VecNormalize
 
 
 # Get a render function
@@ -18,7 +18,6 @@ def get_render_func(venv):
 
     return None
 
-"""
 def get_vec_normalize(venv):
     if isinstance(venv, VecNormalize):
         return venv
@@ -26,7 +25,6 @@ def get_vec_normalize(venv):
         return get_vec_normalize(venv.venv)
 
     return None
-"""
 
 
 def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
