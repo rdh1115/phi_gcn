@@ -54,6 +54,7 @@ class RolloutStorage(object):
         self.value_preds[self.step].copy_(value_preds)
         self.rewards[self.step].copy_(rewards)
         self.masks[self.step + 1].copy_(masks)
+
         self.inv_loss[self.step].copy_(inv_loss)
         self.for_loss[self.step].copy_(for_loss)
 

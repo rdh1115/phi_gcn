@@ -70,14 +70,14 @@ class ICM(torch.nn.Module):
         else:
             phi1 = state
             phi2 = next_state
-        phi1 = phi1.view(-1, self.state_size)
-        phi2 = phi2.view(-1, self.state_size)
+        phi1_local = phi1.detach().view(-1, self.state_size)
+        phi2_local = phi2.detach().view(-1, self.state_size)
         # forward model: f(phi1,asample) -> phi2
-        phi2_pred = self.forward_model(torch.cat([phi1, action], 1))
+        phi2_pred = self.forward_model(torch.cat([phi1_local, action], 1))
 
         # inverse model: g(phi1,phi2) -> a_inv: [None, ac_space]
-        action_pred = F.softmax(self.inverse_model(torch.cat([phi1.clone(), phi2], 1)), -1)
-        return action_pred, phi2_pred, phi2
+        action_pred = F.softmax(self.inverse_model(torch.cat([phi1_local, phi2_local], 1)), -1)
+        return action_pred, phi2_pred, phi2_local
 
 
 class Policy(nn.Module):
@@ -180,7 +180,7 @@ class ICM_Policy(Policy):
             action_oh[0, action.view(-1)] = 1
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
         inverse_loss = F.cross_entropy(action_pred, action_oh)
-        forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2, reduce=False).sum(-1)
+        forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2)
         return inverse_loss, forward_loss
 
 

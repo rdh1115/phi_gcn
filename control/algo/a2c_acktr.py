@@ -30,7 +30,6 @@ class A2C_ACKTR():
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
-        torch.autograd.set_detect_anomaly(True)
 
     def update(self, rollouts, beta):
         obs_shape = rollouts.obs.size()[2:]
@@ -81,7 +80,7 @@ class A2C_ACKTR():
             # inv_loss, for_loss = self.actor_critic.get_icm_loss(
             #
             # )
-            loss = loss + ((1 - beta) * inv_loss + beta * for_loss)
+            loss = loss + ((1 - beta) * inv_loss.detach() + beta * for_loss.detach())
 
         self.optimizer.zero_grad()
         loss.backward()
