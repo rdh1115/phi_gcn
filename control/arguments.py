@@ -90,6 +90,7 @@ def get_args():
                         help='icm bonus weight (default: 0.01)')
     parser.add_argument('--beta', type=float, default=0.2,
                         help='icm forward loss weight (default: 0.2)')
+    parser.add_argument('--render', action='store_true', default=False)
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

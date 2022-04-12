@@ -14,7 +14,7 @@ import torch.optim as optim
 
 import algo
 from arguments import get_args
-from envs import make_vec_envs
+from envs import make_vec_envs, make_env
 from model import Policy, ICM_Policy
 from storage import RolloutStorage
 import networkx as nx
@@ -78,13 +78,15 @@ def main():
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, args.add_timestep, device, False)
+    if args.render:
+        render_env = gym.make(args.env_name)
 
     if args.use_icm:
         actor_critic = ICM_Policy(envs.observation_space.shape, envs.action_space, args.env_name,
-                              base_kwargs={'recurrent': args.recurrent_policy})
+                                  base_kwargs={'recurrent': args.recurrent_policy})
     else:
         actor_critic = Policy(envs.observation_space.shape, envs.action_space, args.env_name,
-                          base_kwargs={'recurrent': args.recurrent_policy})
+                              base_kwargs={'recurrent': args.recurrent_policy})
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -107,6 +109,8 @@ def main():
                               actor_critic.base.output_size)
 
     obs = envs.reset()
+    render_env.reset()
+
     rollouts.obs[0].copy_(obs)
     rollouts.to(device)
 
@@ -127,14 +131,15 @@ def main():
     ############################
 
     episode_rewards = deque(maxlen=100)
+    intrinsic_rewards = deque(maxlen=100)
     avg_fwdloss = deque(maxlen=100)
+
     rew_rms = RunningMeanStd(shape=())
     delay_rew = torch.zeros([args.num_processes, 1])
     delay_step = torch.zeros([args.num_processes])
 
     start = time.time()
     for j in range(num_updates):
-
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
             update_linear_schedule(
@@ -159,6 +164,7 @@ def main():
 
             last_state = rollouts.obs[step]
             # Observe reward and next obs
+
             obs, reward, done, infos = envs.step(action)
             state = obs
             delay_rew += reward
@@ -198,11 +204,11 @@ def main():
 
             if args.use_icm:
                 inv_loss, for_loss = actor_critic.get_icm_loss(
-                        last_state,
-                        state,
-                        action)
-                bonus = for_loss.detach()*args.eta
-                reward = reward + bonus #.clamp(-1.0, 1.0)
+                    last_state,
+                    state,
+                    action)
+                bonus = for_loss.detach() * args.eta
+                reward = reward + bonus  # .clamp(-1.0, 1.0)
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
             rollouts.insert(obs, recurrent_hidden_states, action, action_log_prob, value,
@@ -247,7 +253,7 @@ def main():
             end = time.time()
             print("Updates {}, num timesteps {}, FPS {} \n Last {}\
              training episodes: mean/median reward {:.2f}/{:.2f},\
-              min/max reward {:.2f}/{:.2f}, success rate {:.2f}, avg fwdloss {:.2f}\n".
+              min/max reward {:.2f}/{:.2f}, success rate {:.2f}, avg fwdloss {:.2f}, \n".
                 format(
                 j, total_num_steps,
                 int(total_num_steps / (end - start)),
@@ -267,7 +273,27 @@ def main():
         ####################### Saving and book-keeping #######################
 
     envs.close()
-
+    if args.render:
+        render_env.reset()
+        with torch.no_grad:
+            for _ in range(5):
+                while True:
+                    render_env.render()
+                    # Sample actions
+                    if args.use_icm:
+                        _, action, _, _, _, _ = actor_critic.act(
+                            rollouts.obs[step],
+                            rollouts.recurrent_hidden_states[step],
+                            rollouts.masks[step])
+                    else:
+                        _, action, _, _, _ = actor_critic.act(
+                            rollouts.obs[step],
+                            rollouts.recurrent_hidden_states[step],
+                            rollouts.masks[step])
+                    obs, reward, done, infos = envs.step(action)
+                    if done:
+                        break
+        render_env.close()
 
 if __name__ == "__main__":
     main()
