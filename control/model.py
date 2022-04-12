@@ -178,6 +178,7 @@ class ICM_Policy(Policy):
         if self.discrete:
             action_oh = torch.zeros((1, self.num_outputs))
             action_oh[0, action.view(-1)] = 1
+        print(device)
         action_oh.to(device)
         print(action_oh.is_cuda)
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
