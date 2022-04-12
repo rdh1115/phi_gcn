@@ -57,7 +57,6 @@ except OSError:
 
 def main():
     torch.set_num_threads(1)
-    print(args.cuda)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
     run_id = "alpha{}".format(args.gcn_alpha)
@@ -206,7 +205,7 @@ def main():
                 inv_loss, for_loss = actor_critic.get_icm_loss(
                     last_state,
                     state,
-                    action)
+                    action, device)
                 bonus = for_loss.detach() * args.eta
                 reward = reward + bonus  # .clamp(-1.0, 1.0)
             # If done then clean the history of observations.
