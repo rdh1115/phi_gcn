@@ -39,6 +39,7 @@ class ICM(torch.nn.Module):
         if action_space.__class__.__name__ == "Discrete":
             action_space = action_space.n
             self.state_size = 64 * 3 * 3
+            print(action_space)
         else:
             raise NotImplementedError
             # TODO: for continuous action space, loss is gaussian mean or output?
@@ -179,6 +180,7 @@ class ICM_Policy(Policy):
         if self.discrete:
             action_oh = torch.zeros((1, self.num_outputs),device=device)
             action_oh[0, action.view(-1)] = 1
+            print(self.num_outputs)
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
         inverse_loss = F.cross_entropy(action_pred, action_oh)
         forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2)
