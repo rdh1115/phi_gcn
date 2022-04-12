@@ -203,11 +203,10 @@ def main():
             inv_loss.to(device)
             for_loss.to(device)
             if args.use_icm:
-                action_local = action.to(device)
                 inv_loss, for_loss = actor_critic.get_icm_loss(
                     last_state,
                     state,
-                    action_local, device)
+                    action, device)
                 bonus = for_loss.detach() * args.eta
                 reward = reward + bonus  # .clamp(-1.0, 1.0)
             # If done then clean the history of observations.
