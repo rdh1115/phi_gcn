@@ -72,6 +72,7 @@ class ICM(torch.nn.Module):
             phi2 = next_state
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
+        print(phi1_local.is_cuda, action.is_cuda)
         # forward model: f(phi1,asample) -> phi2
         phi2_pred = self.forward_model(torch.cat([phi1_local, action], 1))
 
@@ -178,7 +179,6 @@ class ICM_Policy(Policy):
         if self.discrete:
             action_oh = torch.zeros((1, self.num_outputs))
             action_oh[0, action.view(-1)] = 1
-        print(self.icm.is_cuda)
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
         inverse_loss = F.cross_entropy(action_pred, action_oh)
         forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2)
