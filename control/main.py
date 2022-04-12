@@ -203,6 +203,7 @@ def main():
             for_loss.to(device)
             if args.use_icm:
                 action_local = action.to(device)
+                print(action_local.is_cuda)
                 inv_loss, for_loss = actor_critic.get_icm_loss(
                     last_state,
                     state,
