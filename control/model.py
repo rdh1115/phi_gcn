@@ -178,7 +178,9 @@ class ICM_Policy(Policy):
         if self.discrete:
             action_oh = torch.zeros((1, self.num_outputs))
             action_oh[0, action.view(-1)] = 1
-            action_oh.to(device)
+            if torch.cuda.is_available():
+                action_oh.to('cuda:0')
+        print(action_oh.is_cuda)
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
         inverse_loss = F.cross_entropy(action_pred, action_oh)
         forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2)
