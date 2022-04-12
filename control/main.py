@@ -275,7 +275,7 @@ def main():
     envs.close()
     if args.render:
         render_env.reset()
-        with torch.no_grad:
+        with torch.no_grad():
             for _ in range(5):
                 while True:
                     render_env.render()
@@ -290,7 +290,7 @@ def main():
                             rollouts.obs[step],
                             rollouts.recurrent_hidden_states[step],
                             rollouts.masks[step])
-                    obs, reward, done, infos = envs.step(action)
+                    obs, reward, done, infos = render_env.step(action)
                     if done:
                         break
         render_env.close()
