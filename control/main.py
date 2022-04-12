@@ -199,12 +199,13 @@ def main():
                         rew_states[idx] = []
 
             inv_loss, for_loss = torch.zeros(1), torch.zeros(1)
-
+            inv_loss.to(device)
+            for_loss.to(device)
             if args.use_icm:
                 inv_loss, for_loss = actor_critic.get_icm_loss(
                     last_state,
                     state,
-                    action)
+                    action, device)
                 bonus = for_loss.detach() * args.eta
                 reward = reward + bonus  # .clamp(-1.0, 1.0)
             # If done then clean the history of observations.

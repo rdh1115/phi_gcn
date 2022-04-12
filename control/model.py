@@ -173,11 +173,12 @@ class ICM_Policy(Policy):
         # import pdb;pdb.set_trace()
         return value, action, action_log_probs, rnn_hxs, actor_features, action_prob
 
-    def get_icm_loss(self, states, next_states, action):
+    def get_icm_loss(self, states, next_states, action, device):
         action_oh = action.clone()
         if self.discrete:
             action_oh = torch.zeros((1, self.num_outputs))
             action_oh[0, action.view(-1)] = 1
+        action_oh.to(device)
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
         inverse_loss = F.cross_entropy(action_pred, action_oh)
         forward_loss = 0.5 * F.mse_loss(phi2_pred, phi2)
