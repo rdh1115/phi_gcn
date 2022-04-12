@@ -173,7 +173,7 @@ class ICM_Policy(Policy):
         # import pdb;pdb.set_trace()
         return value, action, action_log_probs, rnn_hxs, actor_features, action_prob
 
-    def get_icm_loss(self, states, next_states, action, device):
+    def get_icm_loss(self, states, next_states, action):
         action_oh = action.clone()
         if self.discrete:
             action_oh = torch.zeros((1, self.num_outputs))
