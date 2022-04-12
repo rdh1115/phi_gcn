@@ -73,6 +73,7 @@ class ICM(torch.nn.Module):
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
         # forward model: f(phi1,asample) -> phi2
+        print(phi1_local.is_cuda, action.is_cuda)
         phi2_pred = self.forward_model(torch.cat([phi1_local, action], 1))
 
         # inverse model: g(phi1,phi2) -> a_inv: [None, ac_space]
