@@ -208,8 +208,8 @@ def main():
                     action, device)
                 bonus = for_loss.detach() * args.eta
                 intrinsic_rewards.append(bonus.detach().numpy())
-                fwdloss.append(for_loss.detach().numpy())
-                backloss.append(inv_loss.detach().numpy())
+                fwdloss.append(for_loss.detach().cpu().numpy())
+                backloss.append(inv_loss.detach().cpu().numpy())
                 reward = reward + bonus.cpu()
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
