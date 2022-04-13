@@ -207,7 +207,7 @@ def main():
                     state,
                     action, device)
                 bonus = for_loss.detach() * args.eta
-                intrinsic_rewards.append(bonus.detach().numpy())
+                intrinsic_rewards.append(bonus.detach().cpu().numpy())
                 fwdloss.append(for_loss.detach().cpu().numpy())
                 backloss.append(inv_loss.detach().cpu().numpy())
                 reward = reward + bonus.cpu()
