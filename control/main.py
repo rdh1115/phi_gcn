@@ -149,18 +149,11 @@ def main():
         for step in range(args.num_steps):
             # Sample actions
             with torch.no_grad():
-                if args.use_icm:
-                    value, action, action_log_prob, \
-                    recurrent_hidden_states, hidden_states, action_prob = actor_critic.act(
-                        rollouts.obs[step],
-                        rollouts.recurrent_hidden_states[step],
-                        rollouts.masks[step])
-                else:
-                    value, action, action_log_prob, \
-                    recurrent_hidden_states, hidden_states = actor_critic.act(
-                        rollouts.obs[step],
-                        rollouts.recurrent_hidden_states[step],
-                        rollouts.masks[step])
+                value, action, action_log_prob, \
+                recurrent_hidden_states, hidden_states = actor_critic.act(
+                    rollouts.obs[step],
+                    rollouts.recurrent_hidden_states[step],
+                    rollouts.masks[step])
 
             last_state = rollouts.obs[step]
             # Observe reward and next obs

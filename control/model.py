@@ -70,6 +70,7 @@ class ICM(torch.nn.Module):
         else:
             phi1 = state
             phi2 = next_state
+        print(phi1, phi2)
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
         # TODO: doesn't support more than 1 process, phi_local becomes n_process*576
@@ -170,14 +171,13 @@ class ICM_Policy(Policy):
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
-        action_prob = torch.exp(action_log_probs)
         # import pdb;pdb.set_trace()
-        return value, action, action_log_probs, rnn_hxs, actor_features, action_prob
+        return value, action, action_log_probs, rnn_hxs, actor_features
 
     def get_icm_loss(self, states, next_states, action, device):
         action_oh = action
         if self.discrete:
-            action_oh = torch.zeros((1, self.num_outputs),device=device)
+            action_oh = torch.zeros((1, self.num_outputs), device=device)
             action_oh[0, action.view(-1)] = 1
         action_pred, phi2_pred, phi2 = self.icm(states, next_states, action_oh)
         inverse_loss = F.cross_entropy(action_pred, action_oh)
