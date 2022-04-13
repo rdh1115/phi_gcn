@@ -39,7 +39,6 @@ class ICM(torch.nn.Module):
         if action_space.__class__.__name__ == "Discrete":
             action_space = action_space.n
             self.state_size = 64 * 3 * 3
-            print(action_space)
         else:
             raise NotImplementedError
             # TODO: for continuous action space, loss is gaussian mean or output?
@@ -71,6 +70,7 @@ class ICM(torch.nn.Module):
         else:
             phi1 = state
             phi2 = next_state
+        print(phi1.shape)
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
         # forward model: f(phi1,asample) -> phi2
