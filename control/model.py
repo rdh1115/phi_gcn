@@ -72,6 +72,7 @@ class ICM(torch.nn.Module):
             phi2 = next_state
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
+        # TODO: doesn't support more than 1 process, phi_local becomes n_process*576
         # forward model: f(phi1,asample) -> phi2
         phi2_pred = self.forward_model(torch.cat([phi1_local, action], 1))
 

@@ -131,7 +131,8 @@ def main():
 
     episode_rewards = deque(maxlen=100)
     intrinsic_rewards = deque(maxlen=100)
-    avg_fwdloss = deque(maxlen=100)
+    fwdloss = deque(maxlen=100)
+    backloss = deque(maxlen=100)
 
     rew_rms = RunningMeanStd(shape=())
     delay_rew = torch.zeros([args.num_processes, 1])
@@ -206,6 +207,9 @@ def main():
                     state,
                     action, device)
                 bonus = for_loss.detach() * args.eta
+                intrinsic_rewards.append(bonus)
+                fwdloss.append(for_loss)
+                backloss.append(inv_loss)
                 reward = reward + bonus.cpu()
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
@@ -250,18 +254,20 @@ def main():
         if j % args.log_interval == 0 and len(episode_rewards) > 1:
             end = time.time()
             print("Updates {}, num timesteps {}, FPS {} \n Last {}\
-             training episodes: mean/median reward {:.2f}/{:.2f},\
-              min/max reward {:.2f}/{:.2f}, success rate {:.2f}, avg fwdloss {:.2f}, \n".
+             training episodes: mean/median/intrinsic reward {:.2f}/{:.2f},/{:.2f}\
+              min/max reward {:.2f}/{:.2f}, success rate {:.2f}, fwd/back loss {:.2f}/{:.2f}\n".
                 format(
                 j, total_num_steps,
                 int(total_num_steps / (end - start)),
                 len(episode_rewards),
                 np.mean(episode_rewards),
                 np.median(episode_rewards),
+                np.mean(intrinsic_rewards),
                 np.min(episode_rewards),
                 np.max(episode_rewards),
                 np.count_nonzero(np.greater(episode_rewards, 0)) / len(episode_rewards),
-                np.mean(avg_fwdloss),
+                np.mean(fwdloss),
+                np.mean(backloss)
             )
             )
 
