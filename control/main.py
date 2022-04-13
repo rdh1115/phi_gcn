@@ -206,7 +206,8 @@ def main():
                     state,
                     action, device)
                 bonus = for_loss.detach() * args.eta
-                reward += bonus.cuda()
+                print(bonus)
+                reward = reward + bonus.cuda()
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
             rollouts.insert(obs, recurrent_hidden_states, action, action_log_prob, value,
