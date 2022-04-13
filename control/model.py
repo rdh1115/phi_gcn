@@ -70,7 +70,6 @@ class ICM(torch.nn.Module):
         else:
             phi1 = state
             phi2 = next_state
-        print(phi1.shape)
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
         # forward model: f(phi1,asample) -> phi2
