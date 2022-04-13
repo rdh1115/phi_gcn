@@ -207,6 +207,7 @@ def main():
                     last_state,
                     state,
                     action, device)
+                bonus = torch.tensor(1, device=device)
                 bonus = for_loss.detach() * args.eta
                 reward = reward + bonus.to(device)  # .clamp(-1.0, 1.0)
             # If done then clean the history of observations.
