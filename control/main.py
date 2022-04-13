@@ -207,9 +207,9 @@ def main():
                     state,
                     action, device)
                 bonus = for_loss.detach() * args.eta
-                intrinsic_rewards.append(bonus)
-                fwdloss.append(for_loss)
-                backloss.append(inv_loss)
+                intrinsic_rewards.append(bonus.cpu())
+                fwdloss.append(for_loss.cpu())
+                backloss.append(inv_loss.cpu())
                 reward = reward + bonus.cpu()
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
@@ -262,12 +262,12 @@ def main():
                 len(episode_rewards),
                 np.mean(episode_rewards),
                 np.median(episode_rewards),
-                np.mean(intrinsic_rewards.cpu()),
+                np.mean(intrinsic_rewards),
                 np.min(episode_rewards),
                 np.max(episode_rewards),
                 np.count_nonzero(np.greater(episode_rewards, 0)) / len(episode_rewards),
-                np.mean(fwdloss.cpu()),
-                np.mean(backloss.cpu())
+                np.mean(fwdloss),
+                np.mean(backloss)
             )
             )
 
