@@ -205,7 +205,7 @@ def main():
                     last_state,
                     state,
                     action, device)
-                bonus = for_loss.detach() * args.eta
+                bonus = for_loss * args.eta
                 print(bonus)
                 reward = reward + bonus.cuda()
             # If done then clean the history of observations.
