@@ -206,7 +206,7 @@ def main():
                     state,
                     action, device)
                 bonus = for_loss * args.eta
-                print(bonus)
+                print(bonus, reward)
                 reward = reward + bonus.cuda()
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
