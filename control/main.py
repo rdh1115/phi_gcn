@@ -209,8 +209,8 @@ def main():
                     action, device)
                 bonus = torch.zeros(1, device=device)
                 bonus[0] = for_loss.detach() * args.eta
-                print(bonus)
-                reward = reward + bonus  # .clamp(-1.0, 1.0)
+                print(bonus.is_cuda)
+                reward = reward + bonus
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
             rollouts.insert(obs, recurrent_hidden_states, action, action_log_prob, value,
