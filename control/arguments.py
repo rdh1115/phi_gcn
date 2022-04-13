@@ -89,7 +89,7 @@ def get_args():
     parser.add_argument('--eta', type=float, default=0.01,
                         help='icm bonus weight (default: 0.01)')
     parser.add_argument('--beta', type=float, default=0.2,
-                        help='icm forward loss weight (default: 0.2)')
+                        help='icm loss weight (default: 0.2)')
     parser.add_argument('--render', action='store_true', default=False,
                         help='render after training the model for visualization (default: false)')
     args = parser.parse_args()
