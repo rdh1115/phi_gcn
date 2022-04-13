@@ -70,7 +70,6 @@ class ICM(torch.nn.Module):
         else:
             phi1 = state
             phi2 = next_state
-        print(phi1, phi2)
         phi1_local = phi1.detach().view(-1, self.state_size)
         phi2_local = phi2.detach().view(-1, self.state_size)
         # TODO: doesn't support more than 1 process, phi_local becomes n_process*576
