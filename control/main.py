@@ -55,6 +55,7 @@ except OSError:
         os.remove(f)
 
 
+
 def main():
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
@@ -81,13 +82,27 @@ def main():
     if args.render:
         render_env = gym.make(args.env_name)
 
-    if args.use_icm:
-        actor_critic = ICM_Policy(envs.observation_space.shape, envs.action_space, args.env_name,
+    if args.load_dir == '':
+        if args.use_icm:
+            actor_critic = ICM_Policy(envs.observation_space.shape, envs.action_space, args.env_name,
+                                      base_kwargs={'recurrent': args.recurrent_policy})
+            actor_critic.icm.to(device)
+        else:
+            actor_critic = Policy(envs.observation_space.shape, envs.action_space, args.env_name,
                                   base_kwargs={'recurrent': args.recurrent_policy})
-        actor_critic.icm.to(device)
+
+        ############################
+        # GCN Model and optimizer
+        from pygcn.train import update_graph
+        from pygcn.models import GCN
+        gcn_model = GCN(nfeat=actor_critic.base.output_size,
+                        nhid=args.gcn_hidden)
+        ############################
     else:
-        actor_critic = Policy(envs.observation_space.shape, envs.action_space, args.env_name,
-                              base_kwargs={'recurrent': args.recurrent_policy})
+        gcn_model, actor_critic, obs_rms = \
+            torch.load(os.path.join(args.load_dir),
+                       map_location='cpu')
+
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -104,6 +119,15 @@ def main():
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, acktr=True)
 
+    gcn_model.to(device)
+    gcn_optimizer = optim.Adam(gcn_model.parameters(),
+                               lr=args.gcn_lr, weight_decay=args.gcn_weight_decay)
+    gcn_loss = nn.NLLLoss()
+    gcn_states = [[] for _ in range(args.num_processes)]
+    Gs = [nx.Graph() for _ in range(args.num_processes)]
+    node_ptrs = [0 for _ in range(args.num_processes)]
+    rew_states = [[] for _ in range(args.num_processes)]
+
     rollouts = RolloutStorage(args.num_steps, args.num_processes,
                               envs.observation_space.shape, envs.action_space,
                               actor_critic.recurrent_hidden_state_size,
@@ -113,21 +137,7 @@ def main():
     rollouts.obs[0].copy_(obs)
     rollouts.to(device)
 
-    ############################
-    # GCN Model and optimizer
-    from pygcn.train import update_graph
-    from pygcn.models import GCN
-    gcn_model = GCN(nfeat=actor_critic.base.output_size,
-                    nhid=args.gcn_hidden)
-    gcn_model.to(device)
-    gcn_optimizer = optim.Adam(gcn_model.parameters(),
-                               lr=args.gcn_lr, weight_decay=args.gcn_weight_decay)
-    gcn_loss = nn.NLLLoss()
-    gcn_states = [[] for _ in range(args.num_processes)]
-    Gs = [nx.Graph() for _ in range(args.num_processes)]
-    node_ptrs = [0 for _ in range(args.num_processes)]
-    rew_states = [[] for _ in range(args.num_processes)]
-    ############################
+
 
     episode_rewards = deque(maxlen=100)
     intrinsic_rewards = deque(maxlen=100)
@@ -240,7 +250,7 @@ def main():
 
             save_model = [save_gcn, save_model, hasattr(envs.venv, 'ob_rms') and envs.venv.ob_rms or None]
 
-            torch.save(save_model, os.path.join(save_path, args.env_name + "ac.pt"))
+            torch.save(save_model, os.path.join(save_path, args.env_name + f'_{args.use_icm}_' + "ac.pt"))
 
         total_num_steps = (j + 1) * args.num_processes * args.num_steps
 

@@ -92,6 +92,8 @@ def get_args():
                         help='icm loss weight (default: 0.2)')
     parser.add_argument('--render', action='store_true', default=False,
                         help='render after training the model for visualization (default: false)')
+    parser.add_argument('--load_dir', default = '',
+                        help='load model parameters to continue training')
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
