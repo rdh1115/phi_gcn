@@ -31,21 +31,3 @@ To launch a run on one of the delayed MuJoCo environments, use the following com
 ```bash
 python control/main.py --num-frames 3000000   --algo ppo --use-gae --lr 3e-4 --clip-param 0.1 --value-loss-coef 0.5 --num-processes 1 --ppo-epoch 10 --num-steps 2048 --num-mini-batch 32 --gcn_alpha 0.6 --log-interval 1 --env-name Walker2d-v2 --seed 0 --entropy-coef 0.0  --use-logger --folder results --reward_freq 20
 ```
-
-## Cite
-
-If you found our paper useful or interesting, please consider citing it:
-
-```bash
-@inproceedings{NEURIPS2020_97062741,
- author = {Klissarov, Martin and Precup, Doina},
- booktitle = {Advances in Neural Information Processing Systems},
- editor = {H. Larochelle and M. Ranzato and R. Hadsell and M. F. Balcan and H. Lin},
- pages = {12895--12908},
- publisher = {Curran Associates, Inc.},
- title = {Reward Propagation Using Graph Convolutional Networks},
- url = {https://proceedings.neurips.cc/paper/2020/file/970627414218ccff3497cb7a784288f5-Paper.pdf},
- volume = {33},
- year = {2020}
-}
-```
