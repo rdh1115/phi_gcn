@@ -1,5 +1,5 @@
-# Reward Propagation using Graph Convolutional Networks
-The repository contains the code for running the experiments in the paper [Reward Propagation using Graph Convolutional Networks](https://arxiv.org/abs/2010.02474) which was presented as a spotlight at NeurIPS 2020. The implementation is based on a few source codes: [gym-miniworld](https://github.com/maximecb/gym-miniworld), a good [pytorch PPO implementation](https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail) and Thomas Kipf's [pytorch GCN implementation](https://github.com/tkipf/pygcn).
+# Combining Reward Propagation using Graph Convolutional Networks with ICM
+We combined [Reward Propagation using Graph Convolutional Networks](https://arxiv.org/abs/2010.02474) which was presented as a spotlight at NeurIPS 2020 with the Intrinsic Curiosity Module [Curiosity-driven Exploration by Self-supervised Prediction] (https://arxiv.org/pdf/1705.05363.pdf).
 
 # Installation
 
